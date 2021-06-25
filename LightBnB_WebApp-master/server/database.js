@@ -57,7 +57,7 @@ exports.getUserWithId = getUserWithId;
  */
 const addUser =  function(user) {
   return pool
-    .query(`INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING  *;`, [user.name, user.email, user.password])
+    .query(`INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *;`, [user.name, user.email, user.password])
     .then((result) => {
       console.log(result.rows);
       return Promise.resolve(result.rows[0]);
@@ -116,14 +116,18 @@ const getAllProperties = (options, limit = 10) => {
   JOIN users ON users.id = properties.owner_id
   `;
 
-  if (options.owner_id) {
-    queryParams.push(`${options.owner_id}`);
-    queryString += `WHERE owner_id = $${queryParams.length} `;
-  }
-
   if (options.city) {
     queryParams.push(`%${options.city}%`);
     queryString += `WHERE city LIKE $${queryParams.length} `;
+  }
+
+  if (options.owner_id) {
+    queryParams.push(`${options.owner_id}`);
+    if (queryParams.length >= 2) {
+      queryString += `AND properties.owner_id = $${queryParams.length} `;
+    } else {
+      queryString += `WHERE properties.owner_id = $${queryParams.length} `;
+    }
   }
 
   if (options.minimum_price_per_night) {
@@ -182,9 +186,81 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
+  console.log("property: ", property);
+  const price = property.cost_per_night * 100;
+
+  let queryParams = [];
+  let items = '';
+  let values = '';
+
+  queryParams.push(`${property.title}`);
+  items += 'title, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.description}`);
+  items += 'description, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.number_of_bedrooms}`);
+  items += 'number_of_bedrooms, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.number_of_bathrooms}`);
+  items += 'number_of_bathrooms, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.parking_spaces}`);
+  items += 'parking_spaces, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${price}`);
+  items += 'cost_per_night, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.thumbnail_photo_url}`);
+  items += 'thumbnail_photo_url, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.cover_photo_url}`);
+  items += 'cover_photo_url, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.street}`);
+  items += 'street, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.country}`);
+  items += 'country, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.city}`);
+  items += 'city, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.province}`);
+  items += 'province, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.post_code}`);
+  items += 'post_code, ';
+  values += `$${queryParams.length}, `;
+
+  queryParams.push(`${property.owner_id}`);
+  items += 'owner_id';
+  values += `$${queryParams.length}`;
+
+  let queryString = `INSERT INTO properties (${items}) VALUES (${values}) RETURNING *;`;
+
+  console.log(queryString, queryParams);
+
+  return pool
+    .query(queryString, queryParams)
+    .then((result) => {
+      console.log(result.rows);
+      return Promise.resolve(result.rows);
+    })
+    .catch((err) => {
+      console.log(err.message);
+    });
 };
 exports.addProperty = addProperty;
